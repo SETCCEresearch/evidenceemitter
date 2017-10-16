@@ -1,5 +1,6 @@
 package com.setcce.evidenceemitter;
 
+import com.google.common.io.ByteStreams;
 import com.setcce.evidenceemitter.util.KeystoreManagement;
 import no.difi.vefa.peppol.common.code.DigestMethod;
 import no.difi.vefa.peppol.common.model.*;
@@ -7,12 +8,15 @@ import no.difi.vefa.peppol.evidence.jaxb.receipt.TransmissionRole;
 import no.difi.vefa.peppol.evidence.rem.*;
 import no.difi.vefa.peppol.sbdh.SbdReader;
 import no.difi.vefa.peppol.sbdh.SbdWriter;
+import no.difi.vefa.peppol.sbdh.SbdhWriter;
+import no.difi.vefa.peppol.sbdh.util.XMLStreamUtils;
 import org.holodeckb2b.common.util.Utils;
 import org.holodeckb2b.common.workers.DirWatcher;
 import org.holodeckb2b.common.workers.PathWatcher;
 
 import org.holodeckb2b.interfaces.workerpool.TaskConfigurationException;
 
+import javax.xml.stream.XMLStreamWriter;
 import java.io.*;
 import java.security.cert.Certificate;
 import java.security.*;
@@ -51,11 +55,12 @@ public class EvidenceEmitter extends DirWatcher {
             this.log.debug("Read meta data from " + f.getName());
             FileInputStream fi = new FileInputStream(proccesingFileName);
             SbdReader sr = SbdReader.newInstance(fi);
-            Header header = sr.getHeader();
+            Header inputHeader = sr.getHeader();
+            fi.close();
 
-            String senderId =  header.getSender().getIdentifier();
-            String receiverId =  header.getReceiver().getIdentifier();
-            String documentType = header.getDocumentType().getIdentifier();
+            String senderId =  inputHeader.getSender().getIdentifier();
+            String receiverId =  inputHeader.getReceiver().getIdentifier();
+            String documentType = inputHeader.getDocumentType().getIdentifier();
             String instanceId = null;
 
             this.log.debug("Sender Identifier: " + senderId);
@@ -88,16 +93,18 @@ public class EvidenceEmitter extends DirWatcher {
             SignedRemEvidence signedRemEvidence = builder.buildRemEvidenceInstance(privateKeyEntry);
 
             // transform Evidence to ByteArrayOutputStream
-            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+            ByteArrayOutputStream remEvidenceOutputStream = new ByteArrayOutputStream();
             RemEvidenceTransformer remEvidenceTransformer = new RemEvidenceTransformer();
-            remEvidenceTransformer.toFormattedXml(signedRemEvidence, byteArrayOutputStream);
+            remEvidenceTransformer.toFormattedXml(signedRemEvidence, remEvidenceOutputStream);
 
-            Header sbdHeader = getEvidenceHeader(header);
-            this.log.debug("Write REM Evidence file to "+outputFileName);
-//            OutputStream outputStream = new FileOutputStream(outputFileName);
-//            byteArrayOutputStream.writeTo(outputStream);
+            this.log.debug("Write REM Evidence to "+outputFileName);
+            OutputStream outputStream = new FileOutputStream(outputFileName);
+            remEvidenceOutputStream.writeTo(outputStream);
+            remEvidenceOutputStream.close();
 
-            sbdhWrapAndWrite(sbdHeader);
+            Header sbdHeader = getEvidenceHeader(inputHeader);
+            sbdhWrapAndWrite(sbdHeader, outputFileName);
+
 
             // rename input file
             renameFile(new File(proccesingFileName), confirmedFileName);
@@ -146,32 +153,47 @@ public class EvidenceEmitter extends DirWatcher {
             throw new RuntimeException(e);
         }
 
-
         this.log.info("Initialized SETCCE Evidence Emitter using parameters:\n\tWatched directory : " + this.scan_dir + "\n\tFile Extension: " + parameters.get("extension") + "\n\tOutput directory: " + this.output_dir);
     }
 
     private Header getEvidenceHeader(Header rh)  {
 
         // swap sender and receiver
-        Header header = Header.of(
-                ParticipantIdentifier.of("9908:987654321"), // sender
-                ParticipantIdentifier.of("9908:123456789"),  // receiver
-                ProcessIdentifier.of("urn:www.cenbii.eu:profile:bii04:ver1.0"),
-                DocumentTypeIdentifier.of("aa"),
-                InstanceIdentifier.generateUUID(),
-                InstanceType.of("http://uri.etsi.org/02640/soapbinding/v2#","REMEvidence","2"),
-                new Date()
-        );
+//        Header header = Header.of(
+//                rh.getReceiver(), // sender
+//                rh.getSender(),  // receiver
+//                rh.getProcess(),
+//                DocumentTypeIdentifier.of("http://uri.etsi.org/02640/soapbinding/v2#::REMEvidence:2"),
+//                InstanceIdentifier.generateUUID(),
+//                InstanceType.of("http://uri.etsi.org/02640/soapbinding/v2#","REMEvidence","2"),
+//                new Date()
+//        );
+
+        Header header = Header.newInstance()
+                .sender(ParticipantIdentifier.of("9908:987654325"))
+                .receiver(ParticipantIdentifier.of("9908:123456785"))
+                .process(ProcessIdentifier.of("urn:www.cenbii.eu:profile:bii04:ver1.0"))
+                .documentType(DocumentTypeIdentifier.of(
+                        "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2::Invoice" +
+                                "##urn:www.cenbii.eu:transaction:biicoretrdm010:ver1.0" +
+                                ":#urn:www.peppol.eu:bis:peppol4a:ver1.0::2.0"))
+                .instanceType(InstanceType.of("urn:oasis:names:specification:ubl:schema:xsd:Invoice-2", "Invoice", "2.0"))
+                .creationTimestamp(new Date())
+                .identifier(InstanceIdentifier.generateUUID());
 
         return header;
     }
 
-    /** Wraps the ASiC archive supplied in the "inputStream" into a SBD, with the supplied SBDH */
-    private void sbdhWrapAndWrite(Header header) throws Exception {
+    private void sbdhWrapAndWrite(Header outputHeader, String remEvidenceFile) throws Exception {
         File outputFile = File.createTempFile("evidence", ".xml", new File(output_dir));
         FileOutputStream fileOutputStream = new FileOutputStream(outputFile);
 
-        SbdWriter sbdWriter = SbdWriter.newInstance(fileOutputStream, header);
+        SbdWriter sbdWriter = SbdWriter.newInstance(fileOutputStream, outputHeader);
+        try (InputStream inputStream = new FileInputStream(remEvidenceFile);
+             OutputStream outputStream = sbdWriter.binaryWriter("application/xml")) {
+            ByteStreams.copy(inputStream, outputStream);
+        }
+        sbdWriter.close();
 
         log.debug("Wrote sample StandardBusinessDocument into " + outputFile.toString());
     }
