@@ -73,7 +73,6 @@ public class EvidenceEmitter extends DirWatcher {
             }
 
             this.log.debug("Create REM Evidence");
-            // create REM Evidence
             RemEvidenceService remEvidenceService = new RemEvidenceService();
             RemEvidenceBuilder builder = remEvidenceService.createDeliveryNonDeliveryToRecipientBuilder();
             builder.eventCode(EventCode.ACCEPTANCE)
@@ -85,7 +84,7 @@ public class EvidenceEmitter extends DirWatcher {
                     .instanceIdentifier(InstanceIdentifier.of("doc-type-instance-id"))
                     .documentTypeId(DocumentTypeIdentifier.of(documentType))
                     .instanceIdentifier(InstanceIdentifier.of(""))
-                    .payloadDigest( "VGhpc0lzQVNIQTI1NkRpZ2VzdA==".getBytes())
+                    .payloadDigest( "VGhpc0lzQVNIQTI1NkRpZ2VzdA==".getBytes()) // todo
                     .protocolSpecificEvidence(TransmissionRole.C_3,TransportProtocol.AS4,null)
             ;
 
@@ -97,14 +96,10 @@ public class EvidenceEmitter extends DirWatcher {
             RemEvidenceTransformer remEvidenceTransformer = new RemEvidenceTransformer();
             remEvidenceTransformer.toFormattedXml(signedRemEvidence, remEvidenceOutputStream);
 
-            this.log.debug("Write REM Evidence to "+outputFileName);
-            OutputStream outputStream = new FileOutputStream(outputFileName);
-            remEvidenceOutputStream.writeTo(outputStream);
-            remEvidenceOutputStream.close();
-
+            // create SBD
             Header sbdHeader = getEvidenceHeader(inputHeader);
-            sbdhWrapAndWrite(sbdHeader, outputFileName);
-
+            sbdWrapAndWrite(sbdHeader, remEvidenceOutputStream);
+            remEvidenceOutputStream.close();
 
             // rename input file
             renameFile(new File(proccesingFileName), confirmedFileName);
@@ -162,7 +157,7 @@ public class EvidenceEmitter extends DirWatcher {
         Header header = Header.newInstance()
                 .sender(rh.getReceiver())
                 .receiver(rh.getSender())
-                .process(ProcessIdentifier.of("urn:www.cenbii.eu:profile:bii04:ver1.0"))
+                .process(ProcessIdentifier.of("urn:www.cenbii.eu:profile:bii04:ver1.0")) // todo - preveri
                 .documentType(DocumentTypeIdentifier.of("http://uri.etsi.org/02640/soapbinding/v2#::REMEvidence:2"))
                 .instanceType(InstanceType.of("http://uri.etsi.org/02640/soapbinding/v2#","REMEvidence","2"))
                 .creationTimestamp(new Date())
@@ -171,14 +166,19 @@ public class EvidenceEmitter extends DirWatcher {
         return header;
     }
 
-    private void sbdhWrapAndWrite(Header outputHeader, String remEvidenceFile) throws Exception {
+    private void sbdWrapAndWrite(Header outputHeader, ByteArrayOutputStream remEvidenceOutputStream) throws Exception {
         File outputFile = File.createTempFile("evidence", ".xml", new File(output_dir));
         FileOutputStream fileOutputStream = new FileOutputStream(outputFile);
 
         SbdWriter sbdWriter = SbdWriter.newInstance(fileOutputStream, outputHeader);
-        try (InputStream inputStream = new FileInputStream(remEvidenceFile);
-             OutputStream outputStream = sbdWriter.binaryWriter("application/xml")) {
-            ByteStreams.copy(inputStream, outputStream);
+
+        // convert remEvidenceOutputStream to remEvidenceinputStream
+        ByteArrayOutputStream buffer =  remEvidenceOutputStream;
+        byte[] bytes = buffer.toByteArray();
+        InputStream remEvidenceinputStream = new ByteArrayInputStream(bytes);
+
+        try (OutputStream outputStream = sbdWriter.binaryWriter("application/xml")) {
+            ByteStreams.copy(remEvidenceinputStream, outputStream);
         }
         sbdWriter.close();
 
