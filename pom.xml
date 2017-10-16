@@ -47,18 +47,6 @@
         </dependency>
 
         <!-- Difi libraries -->
-        <!--dependency>
-            <groupId>no.difi.vefa</groupId>
-            <artifactId>peppol-evidence</artifactId>
-            <version>0.9.7</version>
-        </dependency>
-
-        <dependency>
-            <groupId>no.difi.vefa</groupId>
-            <artifactId>sbdh</artifactId>
-            <version>0.9.4-SNAPSHOT</version>
-        </dependency-->
-
         <dependency>
             <groupId>no.difi.vefa</groupId>
             <artifactId>peppol-evidence</artifactId>

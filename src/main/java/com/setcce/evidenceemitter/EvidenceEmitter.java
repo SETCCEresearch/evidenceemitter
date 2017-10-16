@@ -159,25 +159,12 @@ public class EvidenceEmitter extends DirWatcher {
     private Header getEvidenceHeader(Header rh)  {
 
         // swap sender and receiver
-//        Header header = Header.of(
-//                rh.getReceiver(), // sender
-//                rh.getSender(),  // receiver
-//                rh.getProcess(),
-//                DocumentTypeIdentifier.of("http://uri.etsi.org/02640/soapbinding/v2#::REMEvidence:2"),
-//                InstanceIdentifier.generateUUID(),
-//                InstanceType.of("http://uri.etsi.org/02640/soapbinding/v2#","REMEvidence","2"),
-//                new Date()
-//        );
-
         Header header = Header.newInstance()
-                .sender(ParticipantIdentifier.of("9908:987654325"))
-                .receiver(ParticipantIdentifier.of("9908:123456785"))
+                .sender(rh.getReceiver())
+                .receiver(rh.getSender())
                 .process(ProcessIdentifier.of("urn:www.cenbii.eu:profile:bii04:ver1.0"))
-                .documentType(DocumentTypeIdentifier.of(
-                        "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2::Invoice" +
-                                "##urn:www.cenbii.eu:transaction:biicoretrdm010:ver1.0" +
-                                ":#urn:www.peppol.eu:bis:peppol4a:ver1.0::2.0"))
-                .instanceType(InstanceType.of("urn:oasis:names:specification:ubl:schema:xsd:Invoice-2", "Invoice", "2.0"))
+                .documentType(DocumentTypeIdentifier.of("http://uri.etsi.org/02640/soapbinding/v2#::REMEvidence:2"))
+                .instanceType(InstanceType.of("http://uri.etsi.org/02640/soapbinding/v2#","REMEvidence","2"))
                 .creationTimestamp(new Date())
                 .identifier(InstanceIdentifier.generateUUID());
 

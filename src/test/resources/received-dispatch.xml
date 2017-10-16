@@ -3,16 +3,10 @@
 <StandardBusinessDocumentHeader >
     <HeaderVersion>1.0</HeaderVersion>
     <Sender>
-        <Identifier Authority="urn:oasis:names:tc:ebcore:partyid-type:IANA:mailto">9908:987654321</Identifier>
-        <ContactInformation>
-            <EmailAddress>eric.prunier@docapost.fr</EmailAddress>
-        </ContactInformation>
+        <Identifier Authority="erds-gateway-id">eu-gateway.setcce.si</Identifier>
     </Sender>
     <Receiver>
-        <Identifier Authority="urn:oasis:names:tc:ebcore:partyid-type:IANA:mailto">9908:123456789</Identifier>
-        <ContactInformation>
-            <EmailAddress>steffen.konegen@esens-pilot.de-mail.de</EmailAddress>
-        </ContactInformation>
+        <Identifier Authority="erds-gateway-id">eu-gateway.setcce.si</Identifier>
     </Receiver>
     <DocumentIdentification>
         <Standard>http://uri.etsi.org/02640/soapbinding/v2</Standard>
